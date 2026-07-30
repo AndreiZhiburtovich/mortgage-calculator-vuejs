@@ -36,7 +36,7 @@
       <p><b>Пример:</b> при 3 000 000 ₽, 12% годовых, 240 мес. платёж ≈ 33 033 ₽.</p>
     </div>
 
-    <button type="button" class="btn-secondary" @click="showFormula = !showFormula">
+    <button type="button" class="btn-formula" @click="showFormula = !showFormula">
       {{ showFormula ? 'Скрыть формулу' : 'Показать формулу' }}
     </button>
 
@@ -49,6 +49,14 @@
 
       <PaymentChart :rows="result.schedule.slice(0, 5)" />
       <PaymentTable :rows="result.schedule.slice(0, 15)" />
+      <button
+        type="button"
+        class="btn-getcsv"
+        @click="downloadSchedule"
+        :disabled="!result"
+      >
+      📥 Скачать график (CSV)
+      </button>
     </div>
   </main>
 </template>
@@ -60,6 +68,7 @@ import PaymentTable from './components/PaymentTable.vue';
 import PaymentChart from './components/PaymentChart.vue';
 import { useMortgageLogic } from './composables/useMortgageLogic.js';
 import { formatCurrency } from './utils/formatCurrency.js';
+import { generateCsv } from './utils/generateCsv.js';
 
 const { generateSchedule } = useMortgageLogic();
 
@@ -129,6 +138,28 @@ const totalOverpayment = computed(() => {
   if (!result.value) return 0;
   return result.value.payment * result.value.schedule.length - Number(principal.value);
 });
+
+const downloadSchedule = () => {
+  if (!result.value || !result.value.schedule || result.value.schedule.length === 0) {
+    console.warn('Нет данных для экспорта: result или schedule отсутствуют');
+    return;
+  }
+
+  try {
+    const csv = generateCsv(result.value.schedule);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `mortgage-schedule-${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error('Ошибка при экспорте CSV:', err);
+  }
+};
 </script>
 
 <style scoped>
@@ -149,7 +180,7 @@ const totalOverpayment = computed(() => {
   transition: background 0.2s;
 }
 .btn-submit:hover { background: #2563eb; }
-.btn-secondary {
+.btn-formula {
   background: transparent;
   border: 1px solid #d1d5db;
   padding: 8px 16px;
@@ -157,7 +188,7 @@ const totalOverpayment = computed(() => {
   cursor: pointer;
   margin-bottom: 1.5rem;
 }
-.btn-secondary:hover { border-color: #3b82f6; color: #3b82f6; }
+.btn-formula:hover { border-color: #3b82f6; color: #3b82f6; }
 .results-block { margin-top: 2rem; }
 .summary-card {
   background: white;
@@ -175,5 +206,24 @@ const totalOverpayment = computed(() => {
   margin-bottom: 1rem;
   code { background: #1f2937; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.9rem; }
   ul { margin: 0.5rem 0 0 1.2rem; color: #4b5563; }
+}
+.btn-getcsv {
+  margin-top: 2rem;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-getcsv:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.btn-getcsv:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
