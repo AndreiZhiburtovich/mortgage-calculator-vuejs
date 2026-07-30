@@ -15,8 +15,6 @@
 </template>
 
 <script setup>
-import { defineProps, defineModel } from 'vue';
-
 defineProps({
   label: String,
   error: String,
