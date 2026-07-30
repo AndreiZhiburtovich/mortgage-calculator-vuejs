@@ -1,51 +1,54 @@
 <template>
   <main class="app-layout">
     <header class="app-header">
-      <h1>Mortgage Calculator</h1>
-      <p>Annuity payment and repayment schedule</p>
+      <h1>Калькулятор ипотеки</h1>
+      <p>Аннуитетный платёж и график выплат</p>
     </header>
 
     <form class="calculator-form" @submit.prevent="recalculate">
       <InputGroup
-        label="Loan amount, ₽"
+        label="Сумма кредита, ₽"
         v-model="principal"
         :error="errors.principal"
       />
       <InputGroup
-        label="Annual interest rate, %"
+        label="Ставка, % годовых"
         v-model="ratePercent"
         :error="errors.ratePercent"
       />
       <InputGroup
-        label="Term, months"
+        label="Срок, месяцев"
         v-model="months"
         :error="errors.months"
       />
 
-      <button type="submit" class="btn-submit">Calculate</button>
+      <button type="submit" class="btn-submit">Рассчитать</button>
     </form>
 
     <div v-if="showFormula" class="formula-block">
-      <h4>Annuity Payment Formula</h4>
+      <h4>Формула аннуитетного платежа</h4>
       <p><code>A = S * (r * (1 + r)^n) / ((1 + r)^n - 1)</code></p>
       <ul>
-        <li><b>S</b> — loan amount</li>
-        <li><b>r</b> — monthly rate (annual / 12 / 100)</li>
-        <li><b>n</b> — number of months</li>
+        <li><b>S</b> — сумма кредита</li>
+        <li><b>r</b> — месячная ставка (годовая / 12 / 100)</li>
+        <li><b>n</b> — количество месяцев</li>
       </ul>
-      <p><b>Example:</b> 3,000,000 ₽, 12% annual, 240 months → ~33,033 ₽/month.</p>
+      <p><b>Пример:</b> при 3 000 000 ₽, 12% годовых, 240 мес. платёж ≈ 33 033 ₽.</p>
     </div>
 
     <button type="button" class="btn-secondary" @click="showFormula = !showFormula">
-      {{ showFormula ? 'Hide formula' : 'Show formula' }}
+      {{ showFormula ? 'Скрыть формулу' : 'Показать формулу' }}
     </button>
 
     <div v-if="result" class="results-block">
       <div class="summary-card">
-        <h2>Monthly Payment</h2>
+        <h2>Ежемесячный платёж</h2>
         <p class="amount">{{ formatCurrency(result.payment) }}</p>
-        <p class="note">Total overpayment: {{ formatCurrency(totalOverpayment) }}</p>
+        <p class="note">Общая переплата: {{ formatCurrency(totalOverpayment) }}</p>
       </div>
+
+      <PaymentChart :rows="result.schedule.slice(0, 5)" />
+      <PaymentTable :rows="result.schedule.slice(0, 15)" />
     </div>
   </main>
 </template>
@@ -53,6 +56,8 @@
 <script setup>
 import { ref, computed } from 'vue';
 import InputGroup from './components/InputGroup.vue';
+import PaymentTable from './components/PaymentTable.vue';
+import PaymentChart from './components/PaymentChart.vue';
 import { useMortgageLogic } from './composables/useMortgageLogic.js';
 import { formatCurrency } from './utils/formatCurrency.js';
 
@@ -73,26 +78,27 @@ const showFormula = ref(false);
 
 const validateInputs = () => {
   let isValid = true;
+
   const p = Number(principal.value);
   const r = Number(ratePercent.value);
   const m = Number(months.value);
 
   if (!p || p <= 0) {
-    errors.value.principal = 'Loan amount must be a positive number';
+    errors.value.principal = 'Сумма должна быть положительным числом';
     isValid = false;
   } else {
     errors.value.principal = '';
   }
 
   if (!r || r < 0) {
-    errors.value.ratePercent = 'Interest rate cannot be negative';
+    errors.value.ratePercent = 'Ставка не может быть отрицательной';
     isValid = false;
   } else {
     errors.value.ratePercent = '';
   }
 
   if (!m || m <= 0 || !Number.isInteger(m)) {
-    errors.value.months = 'Term must be a positive integer';
+    errors.value.months = 'Срок должен быть целым положительным числом';
     isValid = false;
   } else {
     errors.value.months = '';
@@ -102,7 +108,9 @@ const validateInputs = () => {
 };
 
 const recalculate = () => {
-  if (!validateInputs()) return;
+  if (!validateInputs()) {
+    return;
+  }
 
   const p = Number(principal.value);
   const r = Number(ratePercent.value);
@@ -138,7 +146,9 @@ const totalOverpayment = computed(() => {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s;
 }
+.btn-submit:hover { background: #2563eb; }
 .btn-secondary {
   background: transparent;
   border: 1px solid #d1d5db;
@@ -147,6 +157,7 @@ const totalOverpayment = computed(() => {
   cursor: pointer;
   margin-bottom: 1.5rem;
 }
+.btn-secondary:hover { border-color: #3b82f6; color: #3b82f6; }
 .results-block { margin-top: 2rem; }
 .summary-card {
   background: white;
