@@ -25,7 +25,7 @@ const modelValue = defineModel({ required: true });
 
 <style scoped>
 .input-group { display: flex; flex-direction: column; gap: 0.4rem; }
-.label { color: #374151; font-weight: 500; }
+.label { color: #9ca3af; font-weight: 500; }
 .input-field {
   padding: 10px 12px;
   border: 1px solid #d1d5db;
