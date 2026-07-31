@@ -83,10 +83,10 @@ npm run build
 
 Если у вас есть идеи по улучшению (новые типы платежей, график дифференцированных платежей, дополнительные фильтры) — создавайте issue или отправляйте pull request. Буду рад обсудить и принять вклад!
 
-## Лицензия
+## 📄 Лицензия
 MIT
 
-## Автор
+## 👤 Автор
 **Andrei Zhiburtovich**
 - GitHub: [@AndreiZhiburtovich](https://github.com/AndreiZhiburtovich)
 
