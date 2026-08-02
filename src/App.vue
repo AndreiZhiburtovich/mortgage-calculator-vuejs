@@ -162,9 +162,11 @@ const downloadSchedule = () => {
   }
 };
 
+const STORAGE_KEY = 'mortgage-inputs';
+
 const saveInputs = () => {
   try {
-    localStorage.setItem('mortgage-inputs', JSON.stringify({
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
       principal: principal.value,
       ratePercent: ratePercent.value,
       months: months.value,
@@ -177,16 +179,16 @@ const saveInputs = () => {
 watch([principal, ratePercent, months], saveInputs);
 
 onMounted(() => {
-  const saved = localStorage.getItem('mortgage-inputs');
-  if (saved) {
-    try {
-      const data = JSON.parse(saved);
-      if (data.principal !== null) principal.value = data.principal;
-      if (data.ratePercent !== null) ratePercent.value = data.ratePercent;
-      if (data.months !== null) months.value = data.months;
-    } catch (e) {
-      console.warn('Ошибка парсинга localStorage, используем дефолты');
-    }
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return;
+
+  try {
+    const data = JSON.parse(saved);
+    if (data.principal != null) principal.value = data.principal;
+    if (data.ratePercent != null) ratePercent.value = data.ratePercent;
+    if (data.months != null) months.value = data.months;
+  } catch (e) {
+    console.warn('Ошибка парсинга localStorage, используем дефолты');
   }
 });
 </script>
