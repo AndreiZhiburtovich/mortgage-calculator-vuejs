@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import InputGroup from './components/InputGroup.vue';
 import PaymentTable from './components/PaymentTable.vue';
 import PaymentChart from './components/PaymentChart.vue';
@@ -72,9 +72,13 @@ import { generateCsv } from './utils/generateCsv.js';
 
 const { generateSchedule } = useMortgageLogic();
 
-const principal = ref(3000000);
-const ratePercent = ref(12);
-const months = ref(240);
+const defaultPrincipal = 3000000;
+const defaultRatePercent = 12;
+const defaultMonths = 240;
+
+const principal = ref(defaultPrincipal);
+const ratePercent = ref(defaultRatePercent);
+const months = ref(defaultMonths);
 
 const errors = ref({
   principal: '',
@@ -126,22 +130,19 @@ const recalculate = () => {
   const m = Number(months.value);
 
   result.value = generateSchedule(p, r, m);
-
-  localStorage.setItem('mortgage-inputs', JSON.stringify({
-    principal: p,
-    ratePercent: r,
-    months: m,
-  }));
 };
 
 const totalOverpayment = computed(() => {
   if (!result.value) return 0;
-  return result.value.payment * result.value.schedule.length - Number(principal.value);
+  const payment = Number(result.value.payment) || 0;
+  const scheduleLength = result.value.schedule?.length || 0;
+  const principalValue = Number(principal.value) || 0;
+  return payment * scheduleLength - principalValue;
 });
 
 const downloadSchedule = () => {
   if (!result.value || !result.value.schedule || result.value.schedule.length === 0) {
-    console.warn('Нет данных для экспорта: result или schedule отсутствуют');
+    console.warn('Нет данных для экспорта');
     return;
   }
 
@@ -160,6 +161,34 @@ const downloadSchedule = () => {
     console.error('Ошибка при экспорте CSV:', err);
   }
 };
+
+const saveInputs = () => {
+  try {
+    localStorage.setItem('mortgage-inputs', JSON.stringify({
+      principal: principal.value,
+      ratePercent: ratePercent.value,
+      months: months.value,
+    }));
+  } catch (e) {
+    console.warn('Не удалось сохранить в localStorage (возможно, лимит или блокировка)', e);
+  }
+};
+
+watch([principal, ratePercent, months], saveInputs);
+
+onMounted(() => {
+  const saved = localStorage.getItem('mortgage-inputs');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      if (data.principal !== null) principal.value = data.principal;
+      if (data.ratePercent !== null) ratePercent.value = data.ratePercent;
+      if (data.months !== null) months.value = data.months;
+    } catch (e) {
+      console.warn('Ошибка парсинга localStorage, используем дефолты');
+    }
+  }
+});
 </script>
 
 <style scoped>
