@@ -1,12 +1,16 @@
 export function useMortgageLogic() {
-  // Формула аннуитетного платежа
   const calculateAnnuity = (principal, ratePercent, months) => {
     const r = ratePercent / 100 / 12;
-    if (r === 0) return principal / months;
-    return (principal * r) / (1 - Math.pow(1 + r, -months));
+
+    if (r === 0) {
+      return principal / months;
+    }
+
+    const payment = (principal * r) / (1 - Math.pow(1 + r, -months));
+    // Округляем до копеек (2 знака) — так считают банки
+    return Math.round(payment * 100) / 100;
   };
 
-  // Генерация графика платежей (месяц за месяцем)
   const generateSchedule = (principal, ratePercent, months) => {
     const r = ratePercent / 100 / 12;
     const payment = calculateAnnuity(principal, ratePercent, months);
@@ -15,15 +19,20 @@ export function useMortgageLogic() {
 
     for (let i = 1; i <= months; i++) {
       const interest = remaining * r;
+      // Часть платежа, идущая на погашение тела кредита
       const principalPart = payment - interest;
       remaining -= principalPart;
-      if (remaining < 0) remaining = 0;
+
+      // Защита от отрицательного остатка из‑за ошибок округления
+      if (remaining < 0) {
+        remaining = 0;
+      }
 
       schedule.push({
         month: i,
         payment,
-        interest,
-        principalPart,
+        interest: Math.max(0, interest), // защита от -0 или микро‑отрицательных
+        principalPart: Math.max(0, principalPart),
         remaining,
       });
     }
