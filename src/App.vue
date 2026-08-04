@@ -36,7 +36,11 @@
       <p><b>Пример:</b> при 3 000 000 ₽, 12% годовых, 240 мес. платёж ≈ 33 033 ₽.</p>
     </div>
 
-    <button type="button" class="btn-formula" @click="showFormula = !showFormula">
+    <button
+      type="button"
+      class="btn-formula"
+      @click="showFormula = !showFormula"
+    >
       {{ showFormula ? 'Скрыть формулу' : 'Показать формулу' }}
     </button>
 
@@ -49,13 +53,14 @@
 
       <PaymentChart :rows="result.schedule.slice(0, 5)" />
       <PaymentTable :rows="result.schedule.slice(0, 15)" />
+
       <button
         type="button"
         class="btn-getcsv"
         @click="downloadSchedule"
         :disabled="!result"
       >
-      📥 Скачать график (CSV)
+        📥 Скачать график (CSV)
       </button>
     </div>
   </main>
@@ -66,7 +71,9 @@ import { ref, computed, watch, onMounted } from 'vue';
 import InputGroup from './components/InputGroup.vue';
 import PaymentTable from './components/PaymentTable.vue';
 import PaymentChart from './components/PaymentChart.vue';
-import { useMortgageLogic } from './composables/useMortgageLogic.js';
+import useMortgageLogic from './composables/useMortgageLogic.js';
+import { validateInputs } from './utils/validateInputs.js';
+import { saveInputs, loadInputs } from './utils/localStorageManager.js';
 import { formatCurrency } from './utils/formatCurrency.js';
 import { generateCsv } from './utils/generateCsv.js';
 
@@ -80,80 +87,64 @@ const principal = ref(defaultPrincipal);
 const ratePercent = ref(defaultRatePercent);
 const months = ref(defaultMonths);
 
-const errors = ref({
-  principal: '',
-  ratePercent: '',
-  months: '',
-});
-
+const errors = ref({ principal: '', ratePercent: '', months: '' });
 const result = ref(null);
 const showFormula = ref(false);
 
-const validateInputs = () => {
-  let isValid = true;
+// Сохранение при изменении
+watch([principal, ratePercent, months], () => {
+  saveInputs({
+    principal: principal.value,
+    ratePercent: ratePercent.value,
+    months: months.value,
+  });
+});
 
-  const p = Number(principal.value);
-  const r = Number(ratePercent.value);
-  const m = Number(months.value);
-
-  if (!p || p <= 0) {
-    errors.value.principal = 'Сумма должна быть положительным числом';
-    isValid = false;
-  } else {
-    errors.value.principal = '';
-  }
-
-  if (!r || r < 0) {
-    errors.value.ratePercent = 'Ставка не может быть отрицательной';
-    isValid = false;
-  } else {
-    errors.value.ratePercent = '';
-  }
-
-  if (!m || m <= 0 || !Number.isInteger(m)) {
-    errors.value.months = 'Срок должен быть целым положительным числом';
-    isValid = false;
-  } else {
-    errors.value.months = '';
-  }
-
-  return isValid;
-};
+// Восстановление при монтировании
+onMounted(() => {
+  const data = loadInputs();
+  if (!data) return;
+  if (data.principal != null) principal.value = data.principal;
+  if (data.ratePercent != null) ratePercent.value = data.ratePercent;
+  if (data.months != null) months.value = data.months;
+});
 
 const recalculate = () => {
-  if (!validateInputs()) {
-    return;
-  }
+  const { errors: newErrors, isValid } = validateInputs(
+    principal.value,
+    ratePercent.value,
+    months.value
+  );
+  errors.value = newErrors;
+  if (!isValid) return;
 
-  const p = Number(principal.value);
-  const r = Number(ratePercent.value);
-  const m = Number(months.value);
-
-  result.value = generateSchedule(p, r, m);
+  result.value = generateSchedule(
+    Number(principal.value),
+    Number(ratePercent.value),
+    Number(months.value)
+  );
 };
 
 const totalOverpayment = computed(() => {
   if (!result.value) return 0;
   const payment = Number(result.value.payment) || 0;
-  const scheduleLength = result.value.schedule?.length || 0;
+  const length = result.value.schedule?.length || 0;
   const principalValue = Number(principal.value) || 0;
-  return payment * scheduleLength - principalValue;
+  return payment * length - principalValue;
 });
 
 const downloadSchedule = () => {
-  if (!result.value || !result.value.schedule || result.value.schedule.length === 0) {
+  if (!result.value?.schedule?.length) {
     console.warn('Нет данных для экспорта');
     return;
   }
-
   try {
     const csv = generateCsv(result.value.schedule);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `mortgage-schedule-${new Date().toISOString().slice(0,10)}.csv`);
+    link.href = url;
+    link.download = `mortgage-schedule-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -161,36 +152,6 @@ const downloadSchedule = () => {
     console.error('Ошибка при экспорте CSV:', err);
   }
 };
-
-const STORAGE_KEY = 'mortgage-inputs';
-
-const saveInputs = () => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      principal: principal.value,
-      ratePercent: ratePercent.value,
-      months: months.value,
-    }));
-  } catch (e) {
-    console.warn('Не удалось сохранить в localStorage (возможно, лимит или блокировка)', e);
-  }
-};
-
-watch([principal, ratePercent, months], saveInputs);
-
-onMounted(() => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return;
-
-  try {
-    const data = JSON.parse(saved);
-    if (data.principal != null) principal.value = data.principal;
-    if (data.ratePercent != null) ratePercent.value = data.ratePercent;
-    if (data.months != null) months.value = data.months;
-  } catch (e) {
-    console.warn('Ошибка парсинга localStorage, используем дефолты');
-  }
-});
 </script>
 
 <style scoped>
