@@ -1,4 +1,4 @@
-export function useMortgageLogic() {
+export default function useMortgageLogic() {
   const calculateAnnuity = (principal, ratePercent, months) => {
     const r = ratePercent / 100 / 12;
 
